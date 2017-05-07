@@ -5,53 +5,114 @@ import casual from 'casual';
 import _ from 'lodash';
 
 //SQL
-const db = new Sequelize('blog', null, null, {
-  dialect: 'sqlite',
-  storage: './blog.sqlite',
+//SQL connection
+//database, username, password
+const db = new Sequelize('ncp', 'nosh', 'postgres', {
+  dialect: 'postgres',
+  host: 'localhost', //docker host goes here
 });
 
-const UserModel = db.define('user', {
-  id: { type: Sequelize.UUIDV4, primaryKey: true },
+export const UserModel = db.define('user', {
+  id: {
+    type: Sequelize.BIGINT,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  uuid: {
+    type: Sequelize.UUID,
+    defaultValue: Sequelize.UUIDV1,
+  },
   qqId: { type: Sequelize.STRING },
   weiboId: { type: Sequelize.STRING },
   facebookId: { type: Sequelize.STRING },
   twitterId: { type: Sequelize.STRING },
   avatar: { type: Sequelize.STRING },
-  firstName: { type: Sequelize.STRING },
-  lastName: { type: Sequelize.STRING },
-  nickname: { type: Sequelize.STRING },
+  firstName: {
+    type: Sequelize.STRING,
+    field: 'first_name',
+  },
+  lastName: {
+    type: Sequelize.STRING,
+    field: 'last_name',
+  },
+  nickname: {
+    allowNull: true,
+    type: Sequelize.STRING,
+  },
+  email: {
+    type: Sequelize.STRING,
+    allowNull: true, //will get: Unhandled rejection SequelizeBaseError: null - if set to "false" and not seeded
+    validate: {
+      isEmail: true,
+    },
+  },
   timezone: { type: Sequelize.INTEGER },
-  publisher: { type: Sequelize.BOOLEAN },
-  createdAt: { type: Sequelize.DATE },
-  updatedAt: { type: Sequelize.DATE },
+  publisher: {
+    type: Sequelize.BOOLEAN,
+    defaultValue: true,
+  },
+  createdAt: {
+    type: Sequelize.DATE,
+    field: 'created_at',
+  },
+  updatedAt: {
+    type: Sequelize.DATE,
+    field: 'updated_at',
+  },
 });
 
-const PostModel = db.define('post', {
-  id: { type: Sequelize.UUIDV4, primaryKey: true },
+export const PostModel = db.define('post', {
+  id: {
+    type: Sequelize.BIGINT,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  uuid: {
+    type: Sequelize.UUID,
+    defaultValue: Sequelize.UUIDV1,
+  },
   title: { type: Sequelize.STRING },
-  text: { type: Sequelize.STRING },
+  topic: { type: Sequelize.STRING },
   url: { type: Sequelize.STRING },
-  content: { type: Sequelize.STRING },
+  content: { type: Sequelize.TEXT },
   visits: { type: Sequelize.INTEGER },
-  createdAt: { type: Sequelize.DATE },
-  updatedAt: { type: Sequelize.DATE },
-  lastName: { type: Sequelize.STRING },
+  createdAt: {
+    type: Sequelize.DATE,
+    field: 'created_at',
+  },
+  updatedAt: {
+    type: Sequelize.DATE,
+    field: 'updated_at',
+  },
 });
 
-const CommentModel = db.define('comment', {
-  id: { type: Sequelize.UUIDV4, primaryKey: true },
-  content: { type: Sequelize.STRING },
+export const CommentModel = db.define('comment', {
+  id: {
+    type: Sequelize.BIGINT,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  uuid: {
+    type: Sequelize.UUID,
+    defaultValue: Sequelize.UUIDV1,
+  },
+  content: { type: Sequelize.TEXT },
   locked: { type: Sequelize.BOOLEAN },
   url: { type: Sequelize.STRING },
-  createdAt: { type: Sequelize.DATE },
-  updatedAt: { type: Sequelize.DATE },
+  createdAt: {
+    type: Sequelize.DATE,
+    field: 'created_at',
+  },
+  updatedAt: {
+    type: Sequelize.DATE,
+    field: 'updated_at',
+  },
 });
 
 UserModel.hasMany(PostModel);
 PostModel.belongsTo(UserModel);
 PostModel.hasMany(CommentModel);
 CommentModel.belongsTo(PostModel);
-
 //Mongo
 const mongo = Mongoose.connect('mongodb://localhost/views');
 
@@ -81,18 +142,18 @@ casual.seed(123);
 db.sync({ force: true }).then(() => {
   _.times(10, () => {
     return UserModel.create({
+      nickname: casual.nickname,
       firstName: casual.first_name,
       lastName: casual.last_name,
     }).then((user) => {
       return user.createPost({
-        title: `A post by ${user.firstName}`,
-        text: casual.sentences(3),
-      }).then((post) => { // <- the new part starts here
-        // create some View mocks
-        return View.update(
-          { postId: post.id },
-          { views: casual.integer(0, 100) },
-          { upsert: true });
+        title: `A post by ${user.nickname}`,
+        url: casual.url,
+        content: casual.sentences(3),
+      }).then((post) => {
+        return post.createComment({
+          content: casual.sentences(2),
+        });
       });
     });
   });
@@ -100,5 +161,7 @@ db.sync({ force: true }).then(() => {
 
 const User = db.models.user;
 const Post = db.models.post;
+const Comment = db.models.comment;
 
-export { User, Post, View, USDA };
+
+export { User, Post, Comment, View, USDA };
